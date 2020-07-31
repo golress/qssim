@@ -14,6 +14,9 @@
             <tr><td><label for="chd">Crit Damage %: </label></td><td><input name="chd" step="0.1" value="0" id="chd" type="number"/></td></tr>
             <tr><td><label for="multistrike">Multistrike %: </label></td><td><input name="multistrike" step="0.1" value="0" id="multistrike" type="number"/></td></tr>
             <tr><td><label for="healing">Healing %: </label></td><td><input name="healing" step="0.1" value="0" id="healing" type="number"/></td></tr>
+            <tr><td>Settings:</td><td></td></tr>
+            <tr><td><label for="simulations">Simulations: </label></td><td><input name="simulations" step="1" value="1000" id="simulations" type="number"/></td></tr>
+            <tr><td><label for="deaths">Allowed deaths: </label></td><td><input name="deaths" step="1" value="1" id="deaths" type="number"/></td></tr>
         </tbody>
     </table>
 <button onclick="simulateCombat()">Simulate</button>
@@ -36,7 +39,8 @@ function simulateCombat(playerStats) {
     var statsToCheck = Math.round((playerStats[2] + playerStats[3] + playerStats[4] + playerStats[5]) / 4) * 1.3;
     var highestWin = 0;
     var attempts = 0;
-    var simulations = 100;
+    var simulations = document.getElementById("simulations");
+    var allowedDeaths = document.getElementById("deaths");
     while (beatableEnemyStats == null && attempts < 100) {
         var deaths = 0;
         var playerWins = null;
@@ -81,7 +85,7 @@ function simulateCombat(playerStats) {
                 }
                 if (fight.player.health <= 0) {
                     deaths++;
-                    if (deaths >= 2) {
+                    if (deaths > allowedDeaths) {
                         playerWins = false;
                         break;
                     }
@@ -93,7 +97,6 @@ function simulateCombat(playerStats) {
             statsToCheck *= 1.04;
         } else {
             statsToCheck *= 0.99;
-            simulations = 1000;
             if (statsToCheck <= highestWin) {
                 beatableEnemyStats = highestWin;
             }
