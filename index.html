@@ -29,6 +29,9 @@ function simulateCombat(playerStats) {
     stats.forEach(function(statName) {
         playerStats.push(parseFloat(document.getElementById(statName).value));
     });
+    for (var i = 6; i <= 9; i++) {
+        playerStats[i] *= 100;   
+    }
     var beatableEnemyStats = null;
     var statsToCheck = Math.round((playerStats[2] + playerStats[3] + playerStats[4] + playerStats[5]) / 4) * 1.3;
     var highestWin = 0;
@@ -97,7 +100,7 @@ function simulateCombat(playerStats) {
         }
         attempts++;
     }
-    document.getElementById("simulationResult").textContent = beatableEnemyStats;
+    document.getElementById("simulationResult").textContent = Math.round(beatableEnemyStats);
 }
 
 function getHits(percentage) {
