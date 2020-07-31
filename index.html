@@ -2,26 +2,32 @@
 <head>
 </head>
 <body>
-
-<button onclick="simulateCombat">Simulate</button>
+    <table>
+        <tbody>
+            <tr><td><label for="damage">Damage: </label></td><td><input name="damage" id="damage" type="number"/></td></tr>
+            <tr><td><label for="defense">Defense: </label></td><td><input name="defense" id="defense" type="number"/></td></tr>
+            <tr><td><label for="strength">Strength: </label></td><td><input name="strength" id="strength" type="number"/></td></tr>
+            <tr><td><label for="health">Health: </label></td><td><input name="health" id="health" type="number"/></td></tr>
+            <tr><td><label for="agility">Agility: </label></td><td><input name="agility" id="agility" type="number"/></td></tr>
+            <tr><td><label for="dexterity">Dexterity: </label></td><td><input name="dexterity" id="dexterity" type="number"/></td></tr>
+            <tr><td><label for="chc">Crit Chance %: </label></td><td><input name="chc" id="chc" type="number"/></td></tr>
+            <tr><td><label for="chd">Crit Damage %: </label></td><td><input name="chd" id="chd" type="number"/></td></tr>
+            <tr><td><label for="multistrike">Multistrike %: </label></td><td><input name="multistrike" id="multistrike" type="number"/></td></tr>
+            <tr><td><label for="healing">Healing %: </label></td><td><input name="healing" id="healing" type="number"/></td></tr>
+        </tbody>
+<button onclick="simulateCombat()">Simulate</button>
 
 <div id="simulationResult"></div>
 </body>
 </html>
 
 <script>
-
+var stats = ["damage", "defense", "strength", "health", "agility", "dexterity", "chc", "chd", "multistrike", "healing"];
 function simulateCombat(playerStats) {
     var playerStats = [];
-    playerStats.push(500);
-    playerStats.push(500);
-    playerStats.push(500);
-    playerStats.push(500);
-    playerStats.push(500);
-    playerStats.push(500);
-    playerStats.push(500);
-    playerStats.push(500);
-    playerStats.push(500);
+    stats.forEach(function(statName) {
+        playerStats.push(parseFloat(document.getElementById(statName).value));
+    });
     var beatableEnemyStats = null;
     var statsToCheck = Math.round((playerStats[2] + playerStats[3] + playerStats[4] + playerStats[5]) / 4) * 1.3;
     var highestWin = 0;
@@ -91,5 +97,29 @@ function simulateCombat(playerStats) {
         attempts++;
     }
     document.getElementById("simulationResult").textContent = beatableEnemyStats;
+}
+
+function getHits(percentage) {
+    var hits = 0;
+    while (percentage >= 10000) {
+        hits++;
+        percentage -= 10000;
+    }
+    if (percentage > 0 && getRandom(1, 10000) <= percentage) {
+        hits++;
+    }
+    return hits;
+}
+
+function getDamage(baseDamage, critChance, critDamage) {
+    var crits = getHits(critChance);
+    if (crits > 0) {
+        baseDamage *= 1+(crits * ((critDamage + 2000) / 10000));
+    }
+    return Math.round(baseDamage);
+}
+
+function getRandom(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 </script>
