@@ -4,6 +4,7 @@
 <body>
     <table>
         <tbody>
+            <tr><td><u>Stats:</u></td><td></td></tr>
             <tr><td><label for="damage">Damage: </label></td><td><input name="damage" value="0" id="damage" type="number"/></td></tr>
             <tr><td><label for="defense">Defense: </label></td><td><input name="defense" value="0" id="defense" type="number"/></td></tr>
             <tr><td><label for="strength">Strength: </label></td><td><input name="strength" value="0" id="strength" type="number"/></td></tr>
@@ -14,7 +15,7 @@
             <tr><td><label for="chd">Crit Damage %: </label></td><td><input name="chd" step="0.1" value="0" id="chd" type="number"/></td></tr>
             <tr><td><label for="multistrike">Multistrike %: </label></td><td><input name="multistrike" step="0.1" value="0" id="multistrike" type="number"/></td></tr>
             <tr><td><label for="healing">Healing %: </label></td><td><input name="healing" step="0.1" value="0" id="healing" type="number"/></td></tr>
-            <tr><td>Settings:</td><td></td></tr>
+            <tr><td><u>Settings:</u></td><td></td></tr>
             <tr><td><label for="simulations">Simulations: </label></td><td><input name="simulations" step="1" value="1000" id="simulations" type="number"/></td></tr>
             <tr><td><label for="deaths">Allowed deaths: </label></td><td><input name="deaths" step="1" value="1" id="deaths" type="number"/></td></tr>
         </tbody>
@@ -40,7 +41,7 @@ function simulateCombat(playerStats) {
     var highestWin = 0;
     var attempts = 0;
     var simulations = parseInt(document.getElementById("simulations").value);
-    var allowedDeaths = parseInt(document.getElementById("deaths"));
+    var allowedDeaths = parseInt(document.getElementById("deaths").value);
     while (beatableEnemyStats == null && attempts < 100) {
         var deaths = 0;
         var playerWins = null;
@@ -103,7 +104,7 @@ function simulateCombat(playerStats) {
         }
         attempts++;
     }
-    document.getElementById("simulationResult").textContent = Math.round(beatableEnemyStats);
+    document.getElementById("simulationResult").innerHTML = "<b>" + Math.round(beatableEnemyStats) + "</b>";
 }
 
 function getHits(percentage) {
