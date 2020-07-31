@@ -4,17 +4,18 @@
 <body>
     <table>
         <tbody>
-            <tr><td><label for="damage">Damage: </label></td><td><input name="damage" id="damage" type="number"/></td></tr>
-            <tr><td><label for="defense">Defense: </label></td><td><input name="defense" id="defense" type="number"/></td></tr>
-            <tr><td><label for="strength">Strength: </label></td><td><input name="strength" id="strength" type="number"/></td></tr>
-            <tr><td><label for="health">Health: </label></td><td><input name="health" id="health" type="number"/></td></tr>
-            <tr><td><label for="agility">Agility: </label></td><td><input name="agility" id="agility" type="number"/></td></tr>
-            <tr><td><label for="dexterity">Dexterity: </label></td><td><input name="dexterity" id="dexterity" type="number"/></td></tr>
-            <tr><td><label for="chc">Crit Chance %: </label></td><td><input name="chc" id="chc" type="number"/></td></tr>
-            <tr><td><label for="chd">Crit Damage %: </label></td><td><input name="chd" id="chd" type="number"/></td></tr>
-            <tr><td><label for="multistrike">Multistrike %: </label></td><td><input name="multistrike" id="multistrike" type="number"/></td></tr>
-            <tr><td><label for="healing">Healing %: </label></td><td><input name="healing" id="healing" type="number"/></td></tr>
+            <tr><td><label for="damage">Damage: </label></td><td><input name="damage" value="0" id="damage" type="number"/></td></tr>
+            <tr><td><label for="defense">Defense: </label></td><td><input name="defense" value="0" id="defense" type="number"/></td></tr>
+            <tr><td><label for="strength">Strength: </label></td><td><input name="strength" value="0" id="strength" type="number"/></td></tr>
+            <tr><td><label for="health">Health: </label></td><td><input name="health" value="0" id="health" type="number"/></td></tr>
+            <tr><td><label for="agility">Agility: </label></td><td><input name="agility" value="0" id="agility" type="number"/></td></tr>
+            <tr><td><label for="dexterity">Dexterity: </label></td><td><input name="dexterity" value="0" id="dexterity" type="number"/></td></tr>
+            <tr><td><label for="chc">Crit Chance %: </label></td><td><input name="chc" step="0.1" value="0" id="chc" type="number"/></td></tr>
+            <tr><td><label for="chd">Crit Damage %: </label></td><td><input name="chd" step="0.1" value="0" id="chd" type="number"/></td></tr>
+            <tr><td><label for="multistrike">Multistrike %: </label></td><td><input name="multistrike" step="0.1" value="0" id="multistrike" type="number"/></td></tr>
+            <tr><td><label for="healing">Healing %: </label></td><td><input name="healing" step="0.1" value="0" id="healing" type="number"/></td></tr>
         </tbody>
+    </table>
 <button onclick="simulateCombat()">Simulate</button>
 
 <div id="simulationResult"></div>
