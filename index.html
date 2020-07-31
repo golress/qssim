@@ -39,8 +39,8 @@ function simulateCombat(playerStats) {
     var statsToCheck = Math.round((playerStats[2] + playerStats[3] + playerStats[4] + playerStats[5]) / 4) * 1.3;
     var highestWin = 0;
     var attempts = 0;
-    var simulations = document.getElementById("simulations");
-    var allowedDeaths = document.getElementById("deaths");
+    var simulations = parseInt(document.getElementById("simulations").value);
+    var allowedDeaths = parseInt(document.getElementById("deaths"));
     while (beatableEnemyStats == null && attempts < 100) {
         var deaths = 0;
         var playerWins = null;
