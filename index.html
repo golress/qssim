@@ -38,7 +38,7 @@ function simulateCombat(playerStats) {
         playerStats[i] *= 100;   
     }
     var beatableEnemyStats = null;
-    var statsToCheck = Math.round((playerStats[2] + playerStats[3] + playerStats[4] + playerStats[5]) / 4) * 1.3;
+    var statsToCheck = simulateCombatFast(playerStats);
     var highestWin = 0;
     var attempts = 0;
     var simulations = parseInt(document.getElementById("simulations").value);
@@ -112,6 +112,50 @@ function simulateCombat(playerStats) {
     var end = performance.now();
     document.getElementById("simulationResult").innerHTML = "<b>" + convertStatToMob(beatableEnemyStats) + "</b> (" + beatableEnemyStats + ")";
     document.getElementById("calcTimer").innerHTML = "Calculation took " + Math.round(end - start) + "ms";
+}
+    
+function simulateCombatFast(playerStats) {
+    var beatableEnemyStats = null;
+    var statsToCheck = Math.round((playerStats[2] + playerStats[3] + playerStats[4] + playerStats[5]) / 4);
+    var highestWin = 0;
+    var attempts = 0;
+    var allowedDeaths = parseInt(document.getElementById("deaths").value);
+    while (beatableEnemyStats == null && attempts < 100) {
+        var deaths = 0;
+        var playerWins = null;
+        var player = new Object();
+		var critDmg = (1+playerStats[6]/10000)*((playerStats[7]+2000)/10000);
+		var hit = Math.round(playerStats[5]/(playerStats[5]+statsToCheck) * 10000);
+        player.damage = (playerStats[0] + playerStats[2]) * critDmg * (hit/10000) * (playerStats[8]/10000);
+        player.health = playerStats[3] * 50;
+        player.healing = player.health * 0.025;
+        var mob = new Object();
+        mob.damage = statsToCheck - playerStats[1];
+        mob.health = statsToCheck * 50;
+        mob.damage *= (10000 - hit)/10000;
+        if (mob.damage <= 0) {
+            playerWins = true;
+        } else if (player.damage <= 0) {
+            playerWins = false;
+        }
+        if (playerWins == null) {
+			var hits = Math.min(mob.health / player.damage, player.health / mob.damage);
+			if (mob.health / player.damage > (player.health + (player.healing * (playerStats[9]/10000) * hits)) / mob.damage) {
+				playerWins = false;
+			}
+        }
+        if (playerWins == null || playerWins) {
+            highestWin = statsToCheck;
+            statsToCheck *= 1.02;
+        } else {
+            statsToCheck *= 0.99;
+            if (statsToCheck <= highestWin) {
+                beatableEnemyStats = highestWin;
+            }
+        }
+        attempts++;
+    }
+	return beatableEnemyStats;
 }
 
 function getHits(percentage) {
