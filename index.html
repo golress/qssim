@@ -42,15 +42,17 @@ function simulateCombat(playerStats) {
     var attempts = 0;
     var simulations = parseInt(document.getElementById("simulations").value);
     var allowedDeaths = parseInt(document.getElementById("deaths").value);
+    var up = 1.1;
+    var player = new Object();
+    player.damage = playerStats[0] + playerStats[2];
+    player.health = playerStats[3] * 50;
+    player.maxHealth = player.health;
+    player.healing = player.health * 0.025;
+    player.critDmg = (playerStats[7] + 2000) / 10000;
     while (beatableEnemyStats == null && attempts < 100) {
+        player.hit = playerStats[5]/(playerStats[5]+statsToCheck) * 10000;
         var deaths = 0;
         var playerWins = null;
-        var player = new Object();
-        player.damage = playerStats[0] + playerStats[2];
-        player.health = playerStats[3] * 50;
-        player.maxHealth = player.health;
-        player.healing = player.health * 0.025;
-        player.hit = Math.round(playerStats[5]/(playerStats[5]+statsToCheck) * 10000);
         var mob = new Object();
         mob.damage = statsToCheck - playerStats[1];
         mob.health = statsToCheck * 50;
@@ -68,25 +70,25 @@ function simulateCombat(playerStats) {
                 while (fight.player.health > 0 && fight.mob.health > 0) {
                     var hits = 1 + getHits(playerStats[8]);
                     for (var j = 0; j < hits; j++) {
-                        if (getRandom(1, 10000) <= player.hit) {
-                            fight.mob.health -= getDamage(player.damage, playerStats[6], playerStats[7]);
+                        if (getRandom() <= player.hit) {
+                            fight.mob.health -= getDamage(player.damage, playerStats[6], player.critDmg);
                         }
                     }
-                    if (fight.mob.health > 0 && getRandom(1, 10000) <= mob.hit) {
+                    if (getRandom() <= mob.hit) {
                         fight.player.health -= mob.damage;
                     }
                     var heals = getHits(playerStats[9]);
                     for (j = 0; j < heals; j++) {
-                        fight.player.health += Math.round(fight.player.healing);
+                        fight.player.health += fight.player.healing;
                         fight.player.healing *= 0.99;
                         if (fight.player.health > fight.player.maxHealth) {
                             fight.player.health = fight.player.maxHealth;
                         }
                     }
                 }
-                if (fight.player.health <= 0) {
+                if (fight.mob.health > 0) {
                     deaths++;
-                    if (deaths > allowedDeaths) {
+                    if (deaths >= allowedDeaths) {
                         playerWins = false;
                         break;
                     }
@@ -95,9 +97,10 @@ function simulateCombat(playerStats) {
         }
         if (playerWins == null || playerWins) {
             highestWin = statsToCheck;
-            statsToCheck *= 1.04;
+            statsToCheck *= up;
         } else {
             statsToCheck *= 0.99;
+            up = 1.02;
             if (statsToCheck <= highestWin) {
                 beatableEnemyStats = highestWin;
             }
@@ -113,7 +116,7 @@ function getHits(percentage) {
         hits++;
         percentage -= 10000;
     }
-    if (percentage > 0 && getRandom(1, 10000) <= percentage) {
+    if (percentage > 0 && getRandom() <= percentage) {
         hits++;
     }
     return hits;
@@ -122,12 +125,12 @@ function getHits(percentage) {
 function getDamage(baseDamage, critChance, critDamage) {
     var crits = getHits(critChance);
     if (crits > 0) {
-        baseDamage *= 1+(crits * ((critDamage + 2000) / 10000));
+        baseDamage *= 1 + (crits * critDamage);
     }
-    return Math.round(baseDamage);
+    return baseDamage;
 }
 
-function getRandom(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+function getRandom() {
+   return Math.floor(Math.random() * 10000) + 1;
 }
 </script>
