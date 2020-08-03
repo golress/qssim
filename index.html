@@ -119,30 +119,30 @@ function simulateCombatFast(playerStats) {
     var statsToCheck = Math.round((playerStats[2] + playerStats[3] + playerStats[4] + playerStats[5]) / 4);
     var highestWin = 0;
     var attempts = 0;
-    var allowedDeaths = parseInt(document.getElementById("deaths").value);
-    while (beatableEnemyStats == null && attempts < 100) {
+    var allowedDeaths = 0;
+    while (beatableEnemyStats == null) {
         var deaths = 0;
         var playerWins = null;
         var player = new Object();
-	var critDmg = (1+playerStats[6]/100)*((playerStats[7]+20)/100);
-	var hit = Math.round(playerStats[5]/(playerStats[5]+statsToCheck) * 100);
+        var critDmg = (1+playerStats[6]/100)*((playerStats[7]+20)/100);
+        var hit = playerStats[5] / (playerStats[5] + statsToCheck) * 100;
         player.damage = (playerStats[0] + playerStats[2]) * critDmg * (hit/100) * (playerStats[8]/100);
         player.health = playerStats[3] * 50;
         player.healing = player.health * 0.025;
         var mob = new Object();
         mob.damage = statsToCheck - playerStats[1];
         mob.health = statsToCheck * 50;
-        mob.damage *= statsToCheck / (statsToCheck + playerStats[4]);
+        mob.damage *= statsToCheck/(statsToCheck+playerStats[4]);
         if (mob.damage <= 0) {
             playerWins = true;
         } else if (player.damage <= 0) {
             playerWins = false;
         }
         if (playerWins == null) {
-			var hits = Math.min(mob.health / player.damage, player.health / mob.damage);
-			if (mob.health / player.damage > (player.health + (player.healing * (playerStats[9]/100) * hits)) / mob.damage) {
-				playerWins = false;
-			}
+            var hits = Math.min(mob.health / player.damage, player.health / mob.damage);
+            if (mob.health / player.damage > (player.health + (player.healing * (playerStats[9]/100) * hits)) / mob.damage) {
+                playerWins = false;
+            }
         }
         if (playerWins == null || playerWins) {
             highestWin = statsToCheck;
