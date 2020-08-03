@@ -50,15 +50,15 @@ function simulateCombat(playerStats) {
     player.health = playerStats[3] * 50;
     player.maxHealth = player.health;
     player.healing = player.health * 0.025;
-    player.critDmg = (playerStats[7] + 2000) / 10000;
+    player.critDmg = (playerStats[7] + 20) / 100;
     while (beatableEnemyStats == null && attempts < 100) {
-        player.hit = playerStats[5]/(playerStats[5]+statsToCheck) * 10000;
+        player.hit = playerStats[5]/(playerStats[5]+statsToCheck) * 100;
         var deaths = 0;
         var playerWins = null;
         var mob = new Object();
         mob.damage = statsToCheck - playerStats[1];
         mob.health = statsToCheck * 50;
-        mob.hit = 10000 - player.hit;
+        mob.hit = statsToCheck / (statsToCheck + playerStats[4]) * 100;
         if (mob.damage <= 0) {
             playerWins = true;
         } else if (player.damage <= 0) {
@@ -124,15 +124,15 @@ function simulateCombatFast(playerStats) {
         var deaths = 0;
         var playerWins = null;
         var player = new Object();
-		var critDmg = (1+playerStats[6]/10000)*((playerStats[7]+2000)/10000);
-		var hit = Math.round(playerStats[5]/(playerStats[5]+statsToCheck) * 10000);
-        player.damage = (playerStats[0] + playerStats[2]) * critDmg * (hit/10000) * (playerStats[8]/10000);
+	var critDmg = (1+playerStats[6]/100)*((playerStats[7]+20)/100);
+	var hit = Math.round(playerStats[5]/(playerStats[5]+statsToCheck) * 100);
+        player.damage = (playerStats[0] + playerStats[2]) * critDmg * (hit/100) * (playerStats[8]/100);
         player.health = playerStats[3] * 50;
         player.healing = player.health * 0.025;
         var mob = new Object();
         mob.damage = statsToCheck - playerStats[1];
         mob.health = statsToCheck * 50;
-        mob.damage *= (10000 - hit)/10000;
+        mob.damage *= statsToCheck / (statsToCheck + playerStats[4]);
         if (mob.damage <= 0) {
             playerWins = true;
         } else if (player.damage <= 0) {
@@ -140,7 +140,7 @@ function simulateCombatFast(playerStats) {
         }
         if (playerWins == null) {
 			var hits = Math.min(mob.health / player.damage, player.health / mob.damage);
-			if (mob.health / player.damage > (player.health + (player.healing * (playerStats[9]/10000) * hits)) / mob.damage) {
+			if (mob.health / player.damage > (player.health + (player.healing * (playerStats[9]/100) * hits)) / mob.damage) {
 				playerWins = false;
 			}
         }
@@ -160,9 +160,9 @@ function simulateCombatFast(playerStats) {
 
 function getHits(percentage) {
     var hits = 0;
-    while (percentage >= 10000) {
+    while (percentage >= 100) {
         hits++;
-        percentage -= 10000;
+        percentage -= 100;
     }
     if (percentage > 0 && getRandom() <= percentage) {
         hits++;
@@ -179,7 +179,7 @@ function getDamage(baseDamage, critChance, critDamage) {
 }
 
 function getRandom() {
-   return Math.floor(Math.random() * 10000) + 1;
+   return Math.floor(Math.random() * 100) + 0.01;
 }
     
 function convertStatToMob(stat) {
@@ -190,10 +190,15 @@ function findClosestValue(list, value, startKey) {
     var prev = -1;
     var i;
     for (i in list) {
-        if ((prev != -1) && (value < i))
-            return list[prev];
-        else 
+        if ((prev != -1) && (value < i)) {
+            if (value - prev < i - value) {
+                return list[prev];
+            } else {
+                return list[i];
+            }
+        } else {
             prev = i;
+        }
     }
     return list[prev];
 }
