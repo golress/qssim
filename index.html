@@ -34,9 +34,6 @@ function simulateCombat(playerStats) {
     stats.forEach(function(statName) {
         playerStats.push(parseFloat(document.getElementById(statName).value));
     });
-    for (var i = 6; i <= 9; i++) {
-        playerStats[i] *= 100;   
-    }
     var beatableEnemyStats = null;
     var statsToCheck = simulateCombatFast(playerStats);
     var highestWin = 0;
