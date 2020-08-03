@@ -51,8 +51,8 @@ function simulateCombat(playerStats) {
     player.maxHealth = player.health;
     player.healing = player.health * 0.025;
     player.critDmg = (playerStats[7] + 20) / 100;
-    while (beatableEnemyStats == null && attempts < 100) {
-        player.hit = playerStats[5]/(playerStats[5]+statsToCheck) * 100;
+    while (beatableEnemyStats == null) {
+        player.hit = playerStats[5] / (playerStats[5] + statsToCheck) * 100;
         var deaths = 0;
         var playerWins = null;
         var mob = new Object();
@@ -90,13 +90,14 @@ function simulateCombat(playerStats) {
                 }
                 if (fight.mob.health > 0) {
                     deaths++;
-                    if (deaths >= allowedDeaths) {
+                    if (deaths > allowedDeaths) {
                         playerWins = false;
                         break;
                     }
                 }
             }
         }
+
         if (playerWins == null || playerWins) {
             highestWin = statsToCheck;
             statsToCheck *= up;
