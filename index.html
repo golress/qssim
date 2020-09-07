@@ -59,7 +59,6 @@ const STUNNED = "stunned";
 const DMGREDUCT = "dmgreduction";
 const ANY = "any";
 
-var minUpgrade = 0;
 var maxUpgrade = 250;
 var simulations = 100000;
 var resultTable = null;
@@ -94,7 +93,7 @@ function startSim() {
 
 function doSimulation(simulation, mobs, relics, cheapestCost) {
 	var fighters = initFighters();
-	upgradeFighters(fighters);
+	upgradeFighters(fighters, mobs[0]);
 	var cost = calculateCost(fighters);
 	applyUnique(fighters);
 	var currentWins = 0;
@@ -151,50 +150,67 @@ function addColumn(row, index, content) {
 }
 
 function calculateRelics(level) {
-	relics = 0;
-	if (level <= 200) {
-		return level * (level + 1) * 250;
-	} else {
-		return 10050000+(level*(level+1)/2*250-5025000);
-	}
+	return level*(level+1)*250-Math.max(0,level-200)*Math.max(0,level-199)*125;
 }
 
-function upgradeFighters(fighters) {
+function upgradeFighters(fighters, strongestMob) {
 	fighters.forEach(function(fighter) {
 		switch(fighter[CLASS]) {
 			case HEALER:
-				fighter[DMG] += 25 * getRandomUpgrade();
-				fighter[CHD] += 0.25 * getRandomUpgrade();
+				var dmgUpgrades = getRandomUpgrade();
+				fighter[DMG] += 25 * dmgUpgrades;
+				fighter[CHD] += 0.25 * Math.round(dmgUpgrades / 25);
 				break;
 			case PRIEST:
 				break;
 			case KNIGHT:
-				fighter[FULLHP] += 100 * getRandomUpgrade();
 				fighter[DEF] += 10 * getRandomUpgrade();
+				var mobDamage = strongestMob[DMG] * (1 + strongestMob[CHD] / 100) - fighter[DEF];
+				var minHP = Math.floor((mobDamage - 500) / 225);
+				if (minHP < 0) {
+					minHP = 0;
+				}
+				fighter[FULLHP] += 100 * getRandomUpgrade(minHP);
 				fighter[DODGE] += 50 * getRandomUpgrade();
 				break;
 			case TANK:
-				fighter[FULLHP] += 100 * getRandomUpgrade();
 				fighter[DEF] += 10 * getRandomUpgrade();
+				var mobDamage = strongestMob[DMG] * (1 + strongestMob[CHD] / 100) - fighter[DEF];
+				var minHP = Math.floor((mobDamage - 500) / 225);
+				if (minHP < 0) {
+					minHP = 0;
+				}
+				fighter[FULLHP] += 100 * getRandomUpgrade(minHP);
 				fighter[DODGE] += 50 * getRandomUpgrade();
-				fighter[DMG] += 25 * getRandomUpgrade();
-				fighter[CHD] += 0.25 * getRandomUpgrade();
+				var dmg = 56.25
+				var minDmg = Math.floor((strongestMob[DEF] - 100) / dmg);
+				if (minDmg < 0) {
+					minDmg = 0;
+				}
+				var dmgUpgrades = getRandomUpgrade(minDmg);
+				fighter[DMG] += 25 * dmgUpgrades;
+				fighter[CHD] += 0.25 * Math.round(dmgUpgrades / 25);
 				fighter[HIT] += 50 * getRandomUpgrade();
-			case ASSASSIN:
-			case CAVALRY:
-			case BRAWLER:
-			case HUNTER:
-			case MAGE:
-			case WARRIOR:
-				fighter[DMG] += 25 * getRandomUpgrade();
-				fighter[CHD] += 0.25 * getRandomUpgrade();
+				break;
+			default:
+				var dmg = 56.25;
+				if (fighter[CLASS] == MAGE) dmg *= 0.4;
+				if (fighter[CLASS] == HUNTER) dmg *= 0.6;
+				var minDmg = Math.floor((strongestMob[DEF] - 100) / dmg);
+				if (minDmg < 0) {
+					minDmg = 0;
+				}
+				var dmgUpgrades = getRandomUpgrade(minDmg);
+				fighter[DMG] += 25 * dmgUpgrades;
+				fighter[CHD] += 0.25 * Math.round(dmgUpgrades / 25);
 				fighter[HIT] += 50 * getRandomUpgrade();
 				break;
 		}
 	});
 }
 
-function getRandomUpgrade() {
+function getRandomUpgrade(minUpgrade) {
+	minUpgrade = minUpgrade || 0;
 	return Math.floor(Math.random() * (maxUpgrade - minUpgrade + 1)) + minUpgrade;
 }
 
