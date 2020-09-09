@@ -1,480 +1,325 @@
-<html>
-<head>
-<style>td { white-space:pre }</style>
-</head>
-<body>
-	<p>Very stupid early version, don't take any result seriously.</p>
-	<p>For now it's hardcoded for meta build, so it won't add upgrades to priest, only dmg/chd for healer etc. I'll add more manual config options later.</p>
-    <table>
-        <tbody>
-		<tr><td><label for="floor">Dungeon to beat: </label></td><td><input name="floor" value="300" id="floor" type="number"/></td></tr>
-		<tr><td><label for="simulations">Builds to try: </label></td><td><input name="simulations" value="25000" id="simulations" type="number"/></td></tr>
-		<tr><td><label for="wins">Win at least </label><input name="wins" value="5" style="width: 50px" id="wins" type="number"/><label for="wins"> in</label></td><td><input name="tries" value="500" id="tries" type="number"/></td></tr>
-		<tr><td><label for="maxupgrade">Max upgrades per stat: </label></td><td><input name="maxupgrade" value="200" id="maxupgrade" type="number"/></td></tr>
-		<tr><td colspan="2">Fighter 1-3 is front and 4-6 is back</td></tr>
-		<tr><td><label for="fighter1">Fighter 1: </label></td><td><select name="fighter1" value="500" id="fighter1"/></td></tr>
-		<tr><td><label for="fighter2">Fighter 2: </label></td><td><select name="fighter2" value="500" id="fighter2"/></td></tr>
-		<tr><td><label for="fighter3">Fighter 3: </label></td><td><select name="fighter3" value="500" id="fighter3"/></td></tr>
-		<tr><td><label for="fighter4">Fighter 4: </label></td><td><select name="fighter4" value="500" id="fighter4"/></td></tr>
-		<tr><td><label for="fighter5">Fighter 5: </label></td><td><select name="fighter5" value="500" id="fighter5"/></td></tr>
-		<tr><td><label for="fighter6">Fighter 6: </label></td><td><select name="fighter6" value="500" id="fighter6"/></td></tr>
-        </tbody>
-    </table>
-<button onclick="startSim()">Simulate</button><div id="progress"></div>
-
-<table id="simulationResult">
-<thead>
-<tr><th>Cost per relic</th><th>Total Cost</th><th>Fighter 1</th><th>Fighter 2</th><th>Fighter 3</th><th>Fighter 4</th><th>Fighter 5</th><th>Fighter 6</th></tr>
-</thead>
-<tbody>
-</tbody>
+<p>No data is stored, 1 request is made to Queslar with your api key and all calculations happen locally.</p>
+<table>
+<tr><td><label for="apikey">API key: </label></td><td><input type="text" name="apikey" id="apikey" /></td></tr>
+<tr><td><label for="petstrength">% Strength pet passive: </label></td><td><input type="number" name="petstrength" value="1" id="petstrength" /></td></tr>
+<tr><td><label for="pethealth">% Health pet passive: </label></td><td><input type="number" name="pethealth" value="1" id="pethealth" /></td></tr>
+<tr><td><label for="petagility">% Agility pet passive: </label></td><td><input type="number" name="petagility" value="1" id="petagility" /></td></tr>
+<tr><td><label for="petdexterity">% Dexterity pet passive: </label></td><td><input type="number" name="petdexterity" value="1" id="petdexterity" /></td></tr>
 </table>
-
-
+<button onclick="startSim()">Simulate</button> (Press only once and give it some time)
+<p>You can 100% win against: <span id="personalResult"></span></p>
 <script>
-const FULLHP = "fullhealth";
-const HP = "health";
-const DEF = "defense";
-const DMG = "damage";
-const CHD = "critdamage";
-const HIT = "hit";
-const DODGE = "dodge";
-const TYPE = "type";
-const FIGHTER = "fighter";
-const MOB = "monster";
-const CLASS = "class";
-const NONE = "none";
-const ASSASSIN = "assassin";
-const BRAWLER = "brawler";
-const CAVALRY = "cavalry";
-const HEALER = "healer";
-const HUNTER = "hunter";
-const KNIGHT = "knight";
-const MAGE = "mage";
-const PRIEST = "priest";
-const TANK = "tank";
-const WARRIOR = "warrior";
-const INDEX = "index";
-const STUNNED = "stunned";
-const DMGREDUCT = "dmgreduction";
-const ANY = "any";
 
-var maxUpgrade = 250;
-var simulations = 100000;
-var resultTable = null;
-var progress = null;
-var tries = 500;
-var requiredWins = 5;
-
-var classes = {"None": NONE, "Any": ANY, "Assassin": ASSASSIN, "Brawler": BRAWLER, "Cavalry": CAVALRY, "Healer": HEALER, "Hunter": HUNTER, "Knight": KNIGHT, "Mage": MAGE, "Priest": PRIEST, "Tank": TANK, "Warrior": WARRIOR};
-
-(function() {
-	for (var i = 1; i <= 6; i++) {
-		var select = document.getElementById(FIGHTER + i);
-		for (var key in classes) {
-			select.options[select.options.length] = new Option(key, classes[key]);
-		}
-	}
-	resultTable = document.getElementById("simulationResult");
-	progress = document.getElementById("progress");
-})();
+var simulationAmount = 6;
+var currentSimulation = 0;
+var combatResult = 0;
 
 function startSim() {
-	tries = parseInt(document.getElementById("tries").value);
-	requiredWins = parseInt(document.getElementById("wins").value);
-	var level = parseInt(document.getElementById("floor").value);
-	maxUpgrade = parseInt(document.getElementById("maxupgrade").value);
-	simulations = parseInt(document.getElementById("simulations").value);
-	var cheapestCost = -1;
-	var relics = calculateRelics(level);
-	var mobs = getMobs(level);
-	doSimulation(1, mobs, relics, cheapestCost);
+    sendRequest("https://queslar.com/api/player/full/" + document.getElementById("apikey").value, simulatePersonalStrength);
 }
 
-function doSimulation(simulation, mobs, relics, cheapestCost) {
-	var fighters = initFighters();
-	upgradeFighters(fighters, mobs[0]);
-	var cost = calculateCost(fighters);
-	applyUnique(fighters);
-	var currentWins = 0;
-	for (var currentTry = 1; currentTry <= tries; currentTry++) {
-		var result = simulateCombat(fighters, mobs);
-		if (result == FIGHTER) {
-			currentWins++;
-			if (currentWins >= requiredWins && (cheapestCost == -1 || cost < cheapestCost)) {
-				cheapestCost = cost;
-				var tbody = document.createElement("tbody");
-				var row = tbody.insertRow();
-				addColumn(row, 0, (cost/relics).toFixed(2));
-				addColumn(row, 1, cost.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-				addColumn(row, 2, fighterToString(fighters, 0));
-				addColumn(row, 3, fighterToString(fighters, 1));
-				addColumn(row, 4, fighterToString(fighters, 2));
-				addColumn(row, 5, fighterToString(fighters, 3));
-				addColumn(row, 6, fighterToString(fighters, 4));
-				addColumn(row, 7, fighterToString(fighters, 5));
-				var currentBody = resultTable.tBodies[0];
-				resultTable.replaceChild(tbody, currentBody);
-				break;
-			}
-		}
-	}
-	if (simulation >= simulations) {
-		progress.innerHTML = "Finished!";
-	} else if (simulation % 2500 == 0) {
-		progress.innerHTML = simulation + "/" + simulations;
-		setTimeout(function() { doSimulation(simulation+1, mobs, relics, cheapestCost); }, 0);
-	} else {
-		doSimulation(simulation+1, mobs, relics, cheapestCost);
-	}
+function sendRequest(theUrl, callback)
+{
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.onreadystatechange = function() { 
+        if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+            callback(JSON.parse(xmlHttp.responseText));
+        }
+    }
+    xmlHttp.open("GET", theUrl, true); // true for asynchronous 
+    xmlHttp.send(null);
 }
 
-function fighterToString(fighters, index) {
-	if (fighters.length > index) {
-		var fighter = fighters[index];
-		var result = fighter[CLASS] + "\n";
-		result += "Health: " + fighter[FULLHP] + "\n";
-		result += "Defense: " + fighter[DEF] + "\n";
-		result += "Damage: " + fighter[DMG] + "\n";
-		result += "Crit dmg: " + fighter[CHD] + "\n";
-		result += "Hit: " + fighter[HIT] + "\n";
-		result += "Dodge: " + fighter[DODGE];
-		return result;
-	}
-	return "";
+function simulatePersonalStrength(player) {
+    var playerStats = initStats();
+    playerStats["strength"] += player.stats.strength;
+    playerStats["health"] += player.stats.health;
+    playerStats["agility"] += player.stats.agility;
+    playerStats["dexterity"] += player.stats.dexterity;
+    playerStats["critchance"] += player.boosts.critChance * 0.1 + player.house.chairs;
+    playerStats["critdamage"] += player.boosts.critDamage * 0.1 + player.house.stove;
+    playerStats["multistrike"] += player.boosts.multistrike * 0.1 + player.house.sink;
+    playerStats["healing"] += player.boosts.healing * 0.1 + player.house.basket;
+    player.equipmentEquipped.forEach(function(equipment) {
+        addEquipmentStats(playerStats, equipment, getSlot(player.equipmentSlots, equipment.item_type));
+    });
+    player.partners.forEach(function(partner) {
+        playerStats["strength"] += partner.strength;
+        playerStats["health"] += partner.health;
+        playerStats["agility"] += partner.agility;
+        playerStats["dexterity"] += partner.dexterity;
+    });
+    var mobModifiers = {"strength": 0, "health": 0, "agility": 0, "dexterity": 0};
+    var strengthPassive = 1 + parseInt(document.getElementById("petstrength").value) / 100;
+    var healthPassive = 1 + parseInt(document.getElementById("pethealth").value) / 100;
+    var agilityPassive = 1 + parseInt(document.getElementById("petagility").value) / 100;
+    var dexterityPassive = 1 + parseInt(document.getElementById("petdexterity").value) / 100;
+    player.pets.forEach(function(pet) {
+        var efficiency = 0.5 + (0.05 * pet.efficiency_tier);
+        playerStats["damage"] += pet.level * 4 * efficiency;
+        playerStats["defense"] += pet.level * 2 * efficiency;
+        playerStats["strength"] += pet.strength * efficiency;
+        playerStats["health"] += pet.health * efficiency;
+        playerStats["agility"] += pet.agility * efficiency;
+        playerStats["dexterity"] += pet.dexterity * efficiency;
+        mobModifiers["strength"] += pet.monster_strength * 8 * strengthPassive * efficiency;
+        mobModifiers["health"] += pet.monster_health * 4 * healthPassive * efficiency;
+        mobModifiers["agility"] += pet.monster_agility * 12 * agilityPassive * efficiency;
+        mobModifiers["dexterity"] += pet.monster_dexterity * 12 * dexterityPassive * efficiency;
+    });
+    playerStats["defense"] *= 1 + player.boosts.defense / 1000;
+    console.log(playerStats);
+    console.log(mobModifiers);
+    combatResult = 0;
+    currentSimulation = 0;
+    simulateCombat(playerStats, null, mobModifiers, document.getElementById("personalResult"));
 }
 
-function addColumn(row, index, content) {	
-	var relicCell = row.insertCell(index);
-	relicCell.appendChild(document.createTextNode(content));
+function addEquipmentStats(playerStats, equipment, slot) {
+    var slotMulti = 1+slot/100;
+    playerStats["damage"] += equipment.damage * slotMulti;
+    playerStats["defense"] += equipment.defense * slotMulti;
+    playerStats["strength"] += equipment.strength * slotMulti;
+    playerStats["health"] += equipment.health * slotMulti;
+    playerStats["agility"] += equipment.agility * slotMulti;
+    playerStats["dexterity"] += equipment.dexterity * slotMulti;
 }
 
-function calculateRelics(level) {
-	return level*(level+1)*250-Math.max(0,level-200)*Math.max(0,level-199)*125;
+function getSlot(slots, equipmentType) {
+    switch (equipmentType) {
+        case "weapon":
+            return slots.left_hand_level;
+        case "dagger":
+        case "shield":
+            return slots.right_hand_level;
+        case "helmet":
+            return slots.head_level;
+        case "armor":
+            return slots.body_level;
+        case "gloves":
+            return slots.hands_level;
+        case "leggings":
+            return slots.legs_level;
+        case "boots":
+            return slots.feet_level;
+        default:
+            return 0;
+    }
 }
 
-function upgradeFighters(fighters, strongestMob) {
-	fighters.forEach(function(fighter) {
-		switch(fighter[CLASS]) {
-			case HEALER:
-				var dmgUpgrades = getRandomUpgrade();
-				fighter[DMG] += 25 * dmgUpgrades;
-				fighter[CHD] += 0.25 * Math.round(dmgUpgrades / 25);
-				break;
-			case PRIEST:
-				break;
-			case KNIGHT:
-				fighter[DEF] += 10 * getRandomUpgrade();
-				var mobDamage = strongestMob[DMG] * (1 + strongestMob[CHD] / 100) - fighter[DEF];
-				var minHP = Math.floor((mobDamage - 500) / 225);
-				if (minHP < 0) {
-					minHP = 0;
-				}
-				fighter[FULLHP] += 100 * getRandomUpgrade(minHP);
-				fighter[DODGE] += 50 * getRandomUpgrade();
-				break;
-			case TANK:
-				fighter[DEF] += 10 * getRandomUpgrade();
-				var mobDamage = strongestMob[DMG] * (1 + strongestMob[CHD] / 100) - fighter[DEF];
-				var minHP = Math.floor((mobDamage - 500) / 225);
-				if (minHP < 0) {
-					minHP = 0;
-				}
-				fighter[FULLHP] += 100 * getRandomUpgrade(minHP);
-				fighter[DODGE] += 50 * getRandomUpgrade();
-				var dmg = 56.25
-				var minDmg = Math.floor((strongestMob[DEF] - 100) / dmg);
-				if (minDmg < 0) {
-					minDmg = 0;
-				}
-				var dmgUpgrades = getRandomUpgrade(minDmg);
-				fighter[DMG] += 25 * dmgUpgrades;
-				fighter[CHD] += 0.25 * Math.round(dmgUpgrades / 25);
-				fighter[HIT] += 50 * getRandomUpgrade();
-				break;
-			default:
-				var dmg = 56.25;
-				if (fighter[CLASS] == MAGE) dmg *= 0.4;
-				if (fighter[CLASS] == HUNTER) dmg *= 0.6;
-				var minDmg = Math.floor((strongestMob[DEF] - 100) / dmg);
-				if (minDmg < 0) {
-					minDmg = 0;
-				}
-				var dmgUpgrades = getRandomUpgrade(minDmg);
-				fighter[DMG] += 25 * dmgUpgrades;
-				fighter[CHD] += 0.25 * Math.round(dmgUpgrades / 25);
-				fighter[HIT] += 50 * getRandomUpgrade();
-				break;
-		}
-	});
+function simulateCombat(playerStats, statsToCheck, mobModifiers, resultSpan) {
+    var beatableEnemyStats = null;
+    if (statsToCheck == null) {
+        statsToCheck = simulateCombatFast(playerStats, mobModifiers);
+    }
+    var highestWin = 0;
+    var attempts = 0;
+    var simulations = 100;
+    var up = 1.1;
+    var down = 0.97;
+    var allowedDeaths = 0;
+    var player = new Object();
+    player.damage = playerStats["damage"] + playerStats["strength"];
+    player.health = playerStats["health"] * 50;
+    player.maxHealth = player.health;
+    player.healing = player.health * 0.025;
+    player.critDmg = (playerStats["critdamage"] + 20) / 100;
+    while (beatableEnemyStats == null) {
+        var mobStats = getMobStats(statsToCheck, mobModifiers);
+        player.hit = playerStats["dexterity"] / (playerStats["dexterity"] + mobStats["agility"]) * 100;
+        var deaths = 0;
+        var playerWins = null;
+        var mob = new Object();
+        mob.damage = mobStats["strength"] - playerStats["defense"];
+        mob.health = mobStats["health"] * 50;
+        mob.hit = mobStats["dexterity"] / (mobStats["dexterity"] + playerStats["agility"]) * 100;
+        if (mob.damage <= 0) {
+            playerWins = true;
+        } else if (player.damage <= 0) {
+            playerWins = false;
+        }
+        if (playerWins == null) {
+            for (var i = 0; i < simulations; i++) {
+                var fight = new Object();
+                fight.player = Object.create(player);
+                fight.mob = Object.create(mob);
+                while (fight.player.health > 0 && fight.mob.health > 0) {
+                    var hits = 1 + getHits(playerStats["multistrike"]);
+                    for (var j = 0; j < hits; j++) {
+                        if (getRandom() <= player.hit) {
+                            fight.mob.health -= getDamage(player.damage, playerStats["critchance"], player.critDmg);
+                        }
+                    }
+                    if (getRandom() <= mob.hit) {
+                        fight.player.health -= mob.damage;
+                    }
+                    var heals = getHits(playerStats["healing"]);
+                    for (j = 0; j < heals; j++) {
+                        fight.player.health += fight.player.healing;
+                        fight.player.healing *= 0.99;
+                        if (fight.player.health > fight.player.maxHealth) {
+                            fight.player.health = fight.player.maxHealth;
+                        }
+                    }
+                }
+                if (fight.mob.health > 0) {
+                    deaths++;
+                    if (deaths > allowedDeaths) {
+                        playerWins = false;
+                        break;
+                    }
+                }
+            }
+        }
+        if (playerWins == null || playerWins) {
+            if (highestWin != null && highestWin == statsToCheck) {
+                beatableEnemyStats = highestWin;
+            }
+            if (simulations >= 1000) {
+                highestWin = statsToCheck;
+                down = 0.99
+            }
+            statsToCheck *= up;
+        } else {
+            if (statsToCheck == highestWin) {
+                highestWin = null;
+            }
+            statsToCheck *= down;
+            if (simulations < 1000) {
+                up = 1.01;
+                simulations = 1000;
+            }
+            if (highestWin != null && statsToCheck < highestWin) {
+                statsToCheck = highestWin;
+            }
+        }
+        attempts++;
+    }
+    currentSimulation++;
+    if (currentSimulation >= simulationAmount) {
+        combatResult += beatableEnemyStats;
+        resultSpan.innerHTML += convertStatToMob(combatResult/simulationAmount);
+    } else {
+        combatResult += beatableEnemyStats;
+        simulateCombat(playerStats, beatableEnemyStats, mobModifiers, resultSpan);
+    }
 }
 
-function getRandomUpgrade(minUpgrade) {
-	minUpgrade = minUpgrade || 0;
-	return Math.floor(Math.random() * (maxUpgrade - minUpgrade + 1)) + minUpgrade;
+function simulateCombatFast(playerStats, mobModifiers) {
+    var beatableEnemyStats = null;
+    var statsToCheck = Math.round((playerStats["strength"] + playerStats["health"] + playerStats["agility"] + playerStats["dexterity"]) / 4);
+    var highestWin = 0;
+    var attempts = 0;
+    var allowedDeaths = 0;
+    while (beatableEnemyStats == null) {
+        var deaths = 0;
+        var playerWins = null;
+        var player = new Object();
+        var critDmg = (1+playerStats["critchance"]/100)*((playerStats["critdamage"]+20)/100);
+        var hit = playerStats["dexterity"] / (playerStats["dexterity"] + statsToCheck) * 100;
+        player.damage = (playerStats["damage"] + playerStats["strength"]) * critDmg * (hit/100) * (playerStats["multistrike"]/100);
+        player.health = playerStats["health"] * 50;
+        player.healing = player.health * 0.025;
+        var mobStats = getMobStats(statsToCheck, mobModifiers);
+        var mob = new Object();
+        mob.damage = mobStats["strength"] - playerStats["defense"];
+        mob.health = mobStats["health"] * 50;
+        mob.damage *= mobStats["dexterity"]/(mobStats["dexterity"]+playerStats["agility"]);
+        if (mob.damage <= 0) {
+            playerWins = true;
+        } else if (player.damage <= 0) {
+            playerWins = false;
+        }
+        if (playerWins == null) {
+            var hits = Math.min(mob.health / player.damage, player.health / mob.damage);
+            if (mob.health / player.damage > (player.health + (player.healing * (playerStats["healing"]/100) * hits)) / mob.damage) {
+                playerWins = false;
+            }
+        }
+        if (playerWins == null || playerWins) {
+            highestWin = statsToCheck;
+            statsToCheck *= 1.02;
+        } else {
+            statsToCheck *= 0.99;
+            if (statsToCheck <= highestWin) {
+                beatableEnemyStats = highestWin;
+            }
+        }
+        attempts++;
+    }
+      return beatableEnemyStats;
 }
 
-function applyUnique(fighters) {
-	var classes = [];
-	fighters.forEach(function(fighter) { 
-		classes.push(fighter[CLASS]);
-	});
-	var uniqueMultiplier = 1 + (new Set(classes)).size * 0.25;
-	fighters.forEach(function(fighter) {
-		fighter[FULLHP] *= uniqueMultiplier;
-		fighter[DEF] *= uniqueMultiplier;
-		fighter[DMG] *= uniqueMultiplier;
-		fighter[CHD] *= uniqueMultiplier;
-		fighter[HIT] *= uniqueMultiplier;
-		fighter[DODGE] *= uniqueMultiplier;
-	});
+function initStats() {
+    var stats = ["damage", "defense", "strength", "health", "agility", "dexterity", "critchance", "critdamage", "multistrike", "healing"];
+    var statArray = [];
+    stats.forEach(function(stat) {
+      statArray[stat] = 0;     
+    });
+    return statArray;
 }
 
-function initFighters() {
-	var fighters = [];
-	for (var i = 1; i <= 6; i++) {
-		var fighterClass = document.getElementById(FIGHTER + i).value;
-		if (fighterClass != NONE) {
-			if (fighterClass == ANY) {
-				var keys = Object.keys(classes);
-				fighterClass = classes[keys[Math.floor((keys.length - 2) * Math.random() + 2)]];
-			}
-			var fighter = [];
-			fighter[INDEX] = i-1;
-			fighter[TYPE] = FIGHTER;
-			fighter[FULLHP] = 500;
-			fighter[DEF] = 25;
-			fighter[DMG] = 100;
-			fighter[CHD] = 0;
-			fighter[HIT] = 50;
-			fighter[DODGE] = 50;
-			fighter[CLASS] = fighterClass;
-			fighter[STUNNED] = 0;
-			fighter[DMGREDUCT] = 0;
-			fighters.push(fighter);
-		}
-	}
-	return fighters;
+function getMobStats(statsToCheck, mobModifiers) {
+    var stats = [];
+    stats["strength"] = statsToCheck - mobModifiers["strength"];
+    stats["health"] = statsToCheck - mobModifiers["health"];
+    stats["agility"] = statsToCheck - mobModifiers["agility"];
+    stats["dexterity"] = statsToCheck - mobModifiers["dexterity"];
+    return stats;
 }
 
-function calculateCost(fighters) {
-	var cost = 0;
-	var fighterCost = 1000;
-	fighters.forEach(function(fighter) { 
-	var test = fighter[CLASS];
-		fighterCost *= 10;
-		cost += fighterCost;
-		cost += getCost(500, fighter[FULLHP], 100);
-		cost += getCost(25, fighter[DEF], 10);
-		cost += getCost(100, fighter[DMG], 25);
-		cost += getCost(0, fighter[CHD], 0.25);
-		cost += getCost(50, fighter[HIT], 50);
-		cost += getCost(50, fighter[DODGE], 50);
-	});
-	return cost -= 10000;
+function getHits(percentage) {
+    var hits = 0;
+    while (percentage >= 100) {
+        hits++;
+        percentage -= 100;
+    }
+    if (percentage > 0 && getRandom() <= percentage) {
+        hits++;
+    }
+    return hits;
 }
 
-function getCost(startValue, currentValue, increment) {
-	var paidValue = currentValue - startValue;
-	if (paidValue == 0) return 0;
-	return paidValue * (paidValue/increment+1) * (5000/increment);
+function getDamage(baseDamage, critChance, critDamage) {
+    var crits = getHits(critChance);
+    if (crits > 0) {
+        baseDamage *= 1 + (crits * critDamage);
+    }
+    return baseDamage;
 }
 
-function resetHealth(fighters) {
-	fighters.forEach(function(fighter) {
-		fighter[HP] = fighter[FULLHP];
-	});
+function getRandom() {
+   return Math.floor(Math.random() * 100) + 0.01;
 }
 
-function simulateCombat(fighters, mobs) {
-	resetHealth(fighters);
-	resetHealth(mobs);
-	var battleOrder = mobs.concat(fighters);
-	battleOrder.sort(function(a, b) { return b[HIT] - a[HIT]});
-	var winner = null;
-	for (var round = 1; round <= 150; round++) {
-		battleOrder.some(function(battlerTurn) {
-			var currentBattler = null;
-			if (battlerTurn[TYPE] == MOB) {
-				currentBattler = mobs[battlerTurn[INDEX]];
-			} else {
-				currentBattler = fighters[battlerTurn[INDEX]];
-			}
-			if (currentBattler[HP] <= 0) {
-				if (currentBattler[CLASS] == PRIEST && Math.random() <= 0.1) {
-					currentBattler[HP] = currentBattler[FULLHP] / 2;
-				}
-			} else if (currentBattler[CLASS] != KNIGHT && currentBattler[STUNNED] == 0) {
-				for (var attacks = 1; attacks <= getAttacks(currentBattler); attacks++) {
-					var targets = getTargets(currentBattler, fighters, mobs);
-					if (currentBattler[CLASS] == HEALER) {
-						targets[0][HP] += currentBattler[DMG] * getCritMultiplier(currentBattler) * 0.75;
-						if (targets[0][HP] > targets[0][FULLHP]) targets[0][HP] = targets[0][FULLHP];
-						return false;
-					}
-					if (targets.length == 0) {
-						if (currentBattler[TYPE] == FIGHTER) {
-							winner = FIGHTER;
-						} else {
-							winner = MOB;
-						}
-						return true;
-					}
-					targets.forEach(function(currentTarget) {
-						if (currentTarget[CLASS] != KNIGHT || Math.random() <= 0.6) {
-							var hitAmount = getHit(currentBattler);
-							var hitchance = hitAmount / (hitAmount + currentTarget[DODGE]);
-							if (Math.random() <= hitchance) {
-								var damage = currentBattler[DMG] * getCritMultiplier(currentBattler) * getDamageReduction(currentTarget, round);
-								if (currentBattler[CLASS] == MAGE) damage *= 0.4;
-								if (currentBattler[CLASS] == HUNTER) damage *= 0.6;
-								damage -= currentTarget[DEF];
-								if (damage < 0) damage = 0;
-								currentTarget[HP] -= damage;
-								if (currentBattler[CLASS] == WARRIOR && Math.random() <= 0.1) {
-									currentTarget[STUNNED] = 2;
-								}
-							}
-						}
-					});
-					if (currentBattler[TYPE] == MOB && getFirstAlive(fighters).length == 0) {
-						winner = MOB;
-						return true;
-					} else if (currentBattler[TYPE] == FIGHTER && getFirstAlive(mobs).length == 0) {
-						winner = FIGHTER;
-						return true;
-					}
-				}
-			}
-			if (currentBattler[STUNNED] > 0) currentBattler[STUNNED]--;
-			return false;
-		});
-		if (winner != null) return winner;
-	}
-	return MOB;
+function convertStatToMob(stat) {
+    var mob = 1;
+    for (var x = 1000; x >= 1; x /= 10) {
+        mob = approximateMob(mob, stat, x);
+    }
+    return "a" + (1+Math.floor(mob/100)) + "m" + ((mob-Math.floor(mob/100)*100)%101);
 }
 
-function getHit(currentBattler) {
-	if (currentBattler[CLASS] == CAVALRY) return currentBattler[HIT] * 2;
-	return currentBattler[HIT];
-}
-
-function getAttacks(currentBattler) {
-	if (currentBattler[CLASS] == BRAWLER && Math.random() <= 0.15) return 2;
-	return 1;
-}
-
-function getDamageReduction(target, round) {
-	if (target[CLASS] != TANK) return 1;
-	if (target[DMGREDUCT] <= round - 3 && Math.random() <= 0.15) {
-		target[DMGREDUCT] = round;
-	}
-	if (target[DMGREDUCT] != 0 && target[DMGREDUCT] > round - 3) {
-		return 0.5;
-	}
-	return 1;
-}
-
-function getCritMultiplier(currentBattler) {
-	var critDmg = 1;
-	if (Math.random() <= 0.1) {
-		critDmg += (currentBattler[CHD]/100);
-	}
-	return critDmg;
-}
-
-function getTargets(currentBattler, fighters, mobs) {
-	if (currentBattler[TYPE] == MOB) return getFirstAlive(fighters);
-	switch (currentBattler[CLASS]) {
-		case ASSASSIN:
-			return getBackColumnTarget(mobs);
-		case HUNTER:
-			var firstTarget = getFirstAlivePosition(mobs);
-			if (firstTarget == -1) return [];
-			if (firstTarget < 3 && mobs.length > firstTarget + 3 && mobs[firstTarget + 3][HP] > 0) {
-				return [mobs[firstTarget], mobs[firstTarget + 3]];
-			}
-			return [mobs[firstTarget]];
-		case MAGE:
-			var firstTarget = getFirstAlivePosition(mobs);
-			if (firstTarget == -1) return [];
-			var targets = [mobs[firstTarget]];
-			var size = mobs.length;
-			var limit = firstTarget < 3 ? 2 : 5;
-			for (var i = firstTarget + 1; i <= limit; i++) {
-				if (size > i && mobs[i][HP] > 0) {
-					targets.push(mobs[i]);
-				}
-			}
-			return targets;
-		case HEALER:
-			return getHealTarget(fighters);
-		default:
-			return getFirstAlive(mobs);
-	}
-}
-
-function getFirstAlive(battlers) {
-	var target = null;
-	battlers.some(function(currentBattler) {
-		if (currentBattler[HP] > 0) {
-			target = currentBattler;
-			return true;
-		}
-		return false;
-	});
-	if (target == null) return [];
-	return [target];
-}
-
-function getFirstAlivePosition(mobs) {
-	var size = mobs.length;
-	for (var i = 0; i < 6; i++) {
-		if (size > i && mobs[i][HP] > 0) return i;
-	}
-	return -1;
-}
-
-function getBackColumnTarget(mobs) {
-	var size = mobs.length;
-	for (var i = 3; i < 6; i++) {
-		if (size > i && mobs[i][HP] > 0) return [mobs[i]];
-	}
-	return getFirstAlive(mobs);
-}
-
-function getHealTarget(fighters) {
-	var target = null;
-	var healthDiff = -1;
-	fighters.forEach(function(currentBattler) {
-		if (currentBattler[HP] > 0 && currentBattler[FULLHP] - currentBattler[HP] > healthDiff) {
-			target = currentBattler;
-			healthDiff = currentBattler[FULLHP] - currentBattler[HP];
-		}
-	});
-	return [target];
-}
-
-function getMobs(level) {
-    var mobs = [];
-	for (var i = 0; i <= Math.floor(level/50); i++) {
-		var mobLevel = level - 25 * i;
-		var mob = [];
-		mob[INDEX] = i;
-		mob[TYPE] = MOB;
-		mob[FULLHP] = mobLevel * 400 + 100;
-		mob[DEF] = mobLevel * 10 + 20;
-		mob[DMG] = mobLevel * 40 + 60;
-		mob[CHD] = mobLevel * 0.25;
-		mob[HIT] = mobLevel * 30 + 50;
-		mob[DODGE] = mobLevel * 30 + 50;
-		mob[CLASS] = NONE;
-		mob[STUNNED] = 0;
-		mob[DMGREDUCT] = 0;
-		mobs.push(mob);
-	}
-	return mobs;
+function approximateMob(currentMob, targetStat, increment) {
+    while (currentMob < 1000000) {
+        var currentStat = 1+Math.pow(10*(currentMob-1),1.25);
+        if (currentMob > 100) {
+            currentStat *= Math.log(currentMob/100)+1;
+        }
+        for (var x = 500; x <= 900; x += 200) {
+            if (currentMob > x) {
+                currentStat *= Math.log(currentMob/x)+1;
+            }
+        }
+        for (var x = 1000; x <= 1800; x += 100) {
+            if (currentMob > x) {
+                currentStat *= Math.log(currentMob/x)+1;
+            }
+        }
+        if (currentStat > targetStat) {
+            return currentMob-increment;
+        }
+        currentMob += increment;
+    }
 }
 </script>
-</body>
-</html>
