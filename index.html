@@ -1,24 +1,51 @@
 <p>No data is stored, 1 request is made to Queslar with your api key and all calculations happen locally.</p>
 <table>
 <tr><td><label for="apikey">API key: </label></td><td><input type="text" name="apikey" id="apikey" /></td></tr>
+<tr><td colspan="2">Pet Farm: (it's not included in API)</td></tr>
 <tr><td><label for="petstrength">% Strength pet passive: </label></td><td><input type="number" name="petstrength" value="1" id="petstrength" /></td></tr>
 <tr><td><label for="pethealth">% Health pet passive: </label></td><td><input type="number" name="pethealth" value="1" id="pethealth" /></td></tr>
 <tr><td><label for="petagility">% Agility pet passive: </label></td><td><input type="number" name="petagility" value="1" id="petagility" /></td></tr>
 <tr><td><label for="petdexterity">% Dexterity pet passive: </label></td><td><input type="number" name="petdexterity" value="1" id="petdexterity" /></td></tr>
+<tr><td colspan="2">Simulate extra boosts on top of your current boosts:</td></tr>
+<tr><td><label for="extracritchance">% extra crit chance boost: </label></td><td><input type="number" name="extracritchance" value="0" step="0.1" id="extracritchance" /></td></tr>
+<tr><td><label for="extracritdmg">% extra crit damage boost: </label></td><td><input type="number" name="extracritdmg" value="0" step="0.1" id="extracritdmg" /></td></tr>
+<tr><td><label for="extramultistrike">% extra multistrike boost: </label></td><td><input type="number" name="extramultistrike" value="0" step="0.1" id="extramultistrike" /></td></tr>
+<tr><td><label for="extrahealing">% extra healing boost: </label></td><td><input type="number" name="extrahealing" value="0" step="0.1" id="extrahealing" /></td></tr>
+<tr><td><label for="extradefense">% extra defense boost: </label></td><td><input type="number" name="extradefense" value="0" step="0.1" id="extradefense" /></td></tr>
 </table>
 <button onclick="startSim()">Simulate</button> (Press only once and give it some time)
-<p>You can 100% win against: <span id="personalResult"></span></p>
+<p>You can 100% win against: <span id="personalResult"></span><button onclick="setBaseline()">Use this result as baseline</button>
+<br/>Baseline for comparison: <span id="baselineResult"></span></p>
+<button onclick="resetPlayerStats()">Reset player data</button> (In case you want to make a new api request next simulation)
 <script>
 
-var simulationAmount = 6;
+var simulationAmount = 7;
 var currentSimulation = 0;
 var combatResult = 0;
+var savedPlayerStats = null;
+var mobModifiers = null;
+var lastResult = null;
+var baselineResult = null;
 
 function startSim() {
-    sendRequest("https://queslar.com/api/player/full/" + document.getElementById("apikey").value, simulatePersonalStrength);
+    if (savedPlayerStats == null) {
+        sendRequest("https://queslar.com/api/player/full/" + document.getElementById("apikey").value, simulatePersonalStrength);
+    } else {
+        simulatePersonalStrength();
+    }
 }
 
-function sendRequest(theUrl, callback)
+function resetPlayerStats() {
+	savedPlayerStats = null;
+	mobModifiers = null;
+}
+
+function setBaseline() {
+    baselineResult = lastResult;
+    document.getElementById("baselineResult").innerHTML = baselineResult;
+}
+
+function sendRequest(url, callback)
 {
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.onreadystatechange = function() { 
@@ -26,63 +53,89 @@ function sendRequest(theUrl, callback)
             callback(JSON.parse(xmlHttp.responseText));
         }
     }
-    xmlHttp.open("GET", theUrl, true); // true for asynchronous 
+    xmlHttp.open("GET", url, true);
     xmlHttp.send(null);
 }
 
 function simulatePersonalStrength(player) {
-    var playerStats = initStats();
-    playerStats["strength"] += player.stats.strength;
-    playerStats["health"] += player.stats.health;
-    playerStats["agility"] += player.stats.agility;
-    playerStats["dexterity"] += player.stats.dexterity;
-    playerStats["critchance"] += player.boosts.critChance * 0.1 + player.house.chairs;
-    playerStats["critdamage"] += player.boosts.critDamage * 0.1 + player.house.stove;
-    playerStats["multistrike"] += player.boosts.multistrike * 0.1 + player.house.sink;
-    playerStats["healing"] += player.boosts.healing * 0.1 + player.house.basket;
-    player.equipmentEquipped.forEach(function(equipment) {
-        addEquipmentStats(playerStats, equipment, getSlot(player.equipmentSlots, equipment.item_type));
-    });
-    player.partners.forEach(function(partner) {
-        playerStats["strength"] += partner.strength;
-        playerStats["health"] += partner.health;
-        playerStats["agility"] += partner.agility;
-        playerStats["dexterity"] += partner.dexterity;
-    });
-    var mobModifiers = {"strength": 0, "health": 0, "agility": 0, "dexterity": 0};
-    var strengthPassive = 1 + parseInt(document.getElementById("petstrength").value) / 100;
-    var healthPassive = 1 + parseInt(document.getElementById("pethealth").value) / 100;
-    var agilityPassive = 1 + parseInt(document.getElementById("petagility").value) / 100;
-    var dexterityPassive = 1 + parseInt(document.getElementById("petdexterity").value) / 100;
-    player.pets.forEach(function(pet) {
-        var efficiency = 0.5 + (0.05 * pet.efficiency_tier);
-        playerStats["damage"] += pet.level * 4 * efficiency;
-        playerStats["defense"] += pet.level * 2 * efficiency;
-        playerStats["strength"] += pet.strength * efficiency;
-        playerStats["health"] += pet.health * efficiency;
-        playerStats["agility"] += pet.agility * efficiency;
-        playerStats["dexterity"] += pet.dexterity * efficiency;
-        mobModifiers["strength"] += pet.monster_strength * 8 * strengthPassive * efficiency;
-        mobModifiers["health"] += pet.monster_health * 4 * healthPassive * efficiency;
-        mobModifiers["agility"] += pet.monster_agility * 12 * agilityPassive * efficiency;
-        mobModifiers["dexterity"] += pet.monster_dexterity * 12 * dexterityPassive * efficiency;
-    });
-    playerStats["defense"] *= 1 + player.boosts.defense / 1000;
-    console.log(playerStats);
-    console.log(mobModifiers);
+	if (savedPlayerStats == null) {
+	    var playerStats = initStats();
+        playerStats["playerId"] = player.actions.id;
+	    playerStats["strength"] += player.stats.strength;
+	    playerStats["health"] += player.stats.health;
+	    playerStats["agility"] += player.stats.agility;
+	    playerStats["dexterity"] += player.stats.dexterity;
+	    playerStats["critchance"] += player.boosts.critChance * 0.1 + convertPercentage(player.house.chairs, 15);
+	    playerStats["critdamage"] += player.boosts.critDamage * 0.1 + convertPercentage(player.house.stove, 15);
+	    playerStats["multistrike"] += player.boosts.multistrike * 0.1 + convertPercentage(player.house.sink, 15);
+	    playerStats["healing"] += player.boosts.healing * 0.1 + convertPercentage(player.house.basket, 15);
+	    player.equipmentEquipped.forEach(function(equipment) {
+	        addEquipmentStats(playerStats, equipment, convertPercentage(getSlot(player.equipmentSlots, equipment.item_type), 30));
+	    });
+	    player.partners.forEach(function(partner) {
+	        playerStats["strength"] += partner.strength;
+	        playerStats["health"] += partner.health;
+	        playerStats["agility"] += partner.agility;
+	        playerStats["dexterity"] += partner.dexterity;
+	    });
+	    mobModifiers = {"strength": 0, "health": 0, "agility": 0, "dexterity": 0};
+	    var strengthPassive = 1 + parseInt(document.getElementById("petstrength").value) / 100;
+	    var healthPassive = 1 + parseInt(document.getElementById("pethealth").value) / 100;
+	    var agilityPassive = 1 + parseInt(document.getElementById("petagility").value) / 100;
+	    var dexterityPassive = 1 + parseInt(document.getElementById("petdexterity").value) / 100;
+	    player.pets.forEach(function(pet) {
+	        var efficiency = 0.2 + (0.1 * pet.efficiency_tier);
+	        playerStats["damage"] += pet.level * 200 * efficiency;
+	        playerStats["defense"] += pet.level * 100 * efficiency;
+	        playerStats["strength"] += pet.strength * efficiency;
+	        playerStats["health"] += pet.health * efficiency;
+	        playerStats["agility"] += pet.agility * efficiency;
+	        playerStats["dexterity"] += pet.dexterity * efficiency;
+	        mobModifiers["strength"] += pet.monster_strength * 8 * strengthPassive * efficiency;
+	        mobModifiers["health"] += pet.monster_health * 4 * healthPassive * efficiency;
+	        mobModifiers["agility"] += pet.monster_agility * 12 * agilityPassive * efficiency;
+	        mobModifiers["dexterity"] += pet.monster_dexterity * 12 * dexterityPassive * efficiency;
+	    });
+        playerStats["basedefense"] = playerStats["defense"];
+        playerStats["defensemulti"] = player.boosts.defense * 0.1 + convertPercentage(player.house.barrel, 15);
+	    playerStats["defense"] *= 1 + playerStats["defensemulti"] / 100;
+        savedPlayerStats = playerStats;
+	}
     combatResult = 0;
     currentSimulation = 0;
-    simulateCombat(playerStats, null, mobModifiers, document.getElementById("personalResult"));
+    var playerStatsCopy = Object.create(savedPlayerStats);
+    playerStatsCopy["critchance"] += parseInt(document.getElementById("extracritchance").value);
+    playerStatsCopy["critdamage"] += parseInt(document.getElementById("extracritdmg").value);
+    playerStatsCopy["multistrike"] += parseInt(document.getElementById("extramultistrike").value);
+    playerStatsCopy["healing"] += parseInt(document.getElementById("extrahealing").value);
+    playerStatsCopy["defense"] = playerStatsCopy["basedefense"] * (1+( + playerStatsCopy["defensemulti"] + parseInt(document.getElementById("extradefense").value)) / 100);
+    console.log(playerStatsCopy);
+    simulateCombat(playerStatsCopy, null, mobModifiers, document.getElementById("personalResult"));
 }
 
 function addEquipmentStats(playerStats, equipment, slot) {
     var slotMulti = 1+slot/100;
-    playerStats["damage"] += equipment.damage * slotMulti;
-    playerStats["defense"] += equipment.defense * slotMulti;
-    playerStats["strength"] += equipment.strength * slotMulti;
-    playerStats["health"] += equipment.health * slotMulti;
-    playerStats["agility"] += equipment.agility * slotMulti;
-    playerStats["dexterity"] += equipment.dexterity * slotMulti;
+    var ownershipMulti = 1;
+    if (equipment.item_ownership === playerStats["playerId"]) {
+        ownershipMulti = 1.25;
+    }
+    playerStats["damage"] += equipment.damage / 1.3 * ownershipMulti * slotMulti;
+    playerStats["defense"] += equipment.defense / 1.3 * ownershipMulti * slotMulti;
+    playerStats["strength"] += equipment.strength / 1.3 * ownershipMulti * slotMulti;
+    playerStats["health"] += equipment.health / 1.3 * ownershipMulti * slotMulti;
+    playerStats["agility"] += equipment.agility / 1.3 * ownershipMulti * slotMulti;
+    playerStats["dexterity"] += equipment.dexterity / 1.3 * ownershipMulti * slotMulti;
+}
+    
+function convertPercentage(level, breakpoint) {
+    var percentagePerLevel = 1;
+    var result = 0;
+    while (level > breakpoint) {
+        result += percentagePerLevel * breakpoint;
+        level -= breakpoint;
+        percentagePerLevel++;
+    }
+    return result + percentagePerLevel * level;
 }
 
 function getSlot(slots, equipmentType) {
@@ -187,7 +240,7 @@ function simulateCombat(playerStats, statsToCheck, mobModifiers, resultSpan) {
             statsToCheck *= down;
             if (simulations < 1000) {
                 up = 1.01;
-                simulations = 1000;
+                simulations = 3500;
             }
             if (highestWin != null && statsToCheck < highestWin) {
                 statsToCheck = highestWin;
@@ -198,7 +251,14 @@ function simulateCombat(playerStats, statsToCheck, mobModifiers, resultSpan) {
     currentSimulation++;
     if (currentSimulation >= simulationAmount) {
         combatResult += beatableEnemyStats;
-        resultSpan.innerHTML += convertStatToMob(combatResult/simulationAmount);
+        lastResult = Math.round(combatResult/simulationAmount);
+        resultSpan.innerHTML = convertStatToMob(lastResult) + " (" + Math.round(lastResult) + ") ";
+        if (baselineResult != null) {
+            if (baselineResult <= lastResult) {
+                resultSpan.innerHTML += "+";
+            }
+            resultSpan.innerHTML += ((lastResult - baselineResult)/baselineResult * 100).toFixed(3) + "%";
+        }
     } else {
         combatResult += beatableEnemyStats;
         simulateCombat(playerStats, beatableEnemyStats, mobModifiers, resultSpan);
