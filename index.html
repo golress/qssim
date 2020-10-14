@@ -176,7 +176,7 @@ function simulateCombat(playerStats, statsToCheck, mobModifiers, resultSpan) {
     player.health = playerStats["health"] * 50;
     player.maxHealth = player.health;
     player.healing = player.health * 0.025;
-    player.critDmg = (playerStats["critdamage"] + 20) / 100;
+    player.critDmg = (playerStats["critdamage"] + 50) / 100;
     while (beatableEnemyStats == null) {
         var mobStats = getMobStats(statsToCheck, mobModifiers);
         player.hit = playerStats["dexterity"] / (playerStats["dexterity"] + mobStats["agility"]) * 100;
@@ -275,7 +275,7 @@ function simulateCombatFast(playerStats, mobModifiers) {
         var deaths = 0;
         var playerWins = null;
         var player = new Object();
-        var critDmg = (1+playerStats["critchance"]/100)*((playerStats["critdamage"]+20)/100);
+        var critDmg = (1+playerStats["critchance"]/100)*((playerStats["critdamage"]+50)/100);
         var hit = playerStats["dexterity"] / (playerStats["dexterity"] + statsToCheck) * 100;
         player.damage = (playerStats["damage"] + playerStats["strength"]) * critDmg * (hit/100) * (playerStats["multistrike"]/100);
         player.health = playerStats["health"] * 50;
