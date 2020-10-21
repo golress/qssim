@@ -2,13 +2,14 @@
 <table>
 <tr><td><label for="apikey">API key: </label></td><td><input type="text" name="apikey" id="apikey" /></td></tr>
 <tr><td colspan="2">Pet Farm: (it's not included in API)</td></tr>
-<tr><td><label for="petstrength">% Strength pet passive: </label></td><td><input type="number" name="petstrength" value="1" id="petstrength" /></td></tr>
-<tr><td><label for="pethealth">% Health pet passive: </label></td><td><input type="number" name="pethealth" value="1" id="pethealth" /></td></tr>
-<tr><td><label for="petagility">% Agility pet passive: </label></td><td><input type="number" name="petagility" value="1" id="petagility" /></td></tr>
-<tr><td><label for="petdexterity">% Dexterity pet passive: </label></td><td><input type="number" name="petdexterity" value="1" id="petdexterity" /></td></tr>
+<tr><td><label for="petstrength">% Strength pet passive: </label></td><td><input type="number" name="petstrength" value="30" id="petstrength" /></td></tr>
+<tr><td><label for="pethealth">% Health pet passive: </label></td><td><input type="number" name="pethealth" value="30" id="pethealth" /></td></tr>
+<tr><td><label for="petagility">% Agility pet passive: </label></td><td><input type="number" name="petagility" value="30" id="petagility" /></td></tr>
+<tr><td><label for="petdexterity">% Dexterity pet passive: </label></td><td><input type="number" name="petdexterity" value="30" id="petdexterity" /></td></tr>
 <tr><td colspan="2">Simulate extra boosts on top of your current boosts:</td></tr>
+<tr><td><label for="investrelics">Relics to invest: </label></td><td><input type="number" name="investrelics" value="0" step="10" id="investrelics" /></td></tr>
 <tr><td><label for="extracritchance">% extra crit chance boost: </label></td><td><input type="number" name="extracritchance" value="0" step="0.1" id="extracritchance" /></td></tr>
-<tr><td><label for="extracritdmg">% extra crit damage boost: </label></td><td><input type="number" name="extracritdmg" value="0" step="0.1" id="extracritdmg" /></td></tr>
+<tr><td><label for="extracritdamage">% extra crit damage boost: </label></td><td><input type="number" name="extracritdamage" value="0" step="0.1" id="extracritdamage" /></td></tr>
 <tr><td><label for="extramultistrike">% extra multistrike boost: </label></td><td><input type="number" name="extramultistrike" value="0" step="0.1" id="extramultistrike" /></td></tr>
 <tr><td><label for="extrahealing">% extra healing boost: </label></td><td><input type="number" name="extrahealing" value="0" step="0.1" id="extrahealing" /></td></tr>
 <tr><td><label for="extradefense">% extra defense boost: </label></td><td><input type="number" name="extradefense" value="0" step="0.1" id="extradefense" /></td></tr>
@@ -19,7 +20,7 @@
 <button onclick="resetPlayerStats()">Reset player data</button> (In case you want to make a new api request next simulation)
 <script>
 
-var simulationAmount = 7;
+var simulationAmount = 5;
 var currentSimulation = 0;
 var combatResult = 0;
 var savedPlayerStats = null;
@@ -65,6 +66,11 @@ function simulatePersonalStrength(player) {
 	    playerStats["health"] += player.stats.health;
 	    playerStats["agility"] += player.stats.agility;
 	    playerStats["dexterity"] += player.stats.dexterity;
+        playerStats["critchanceboost"] = player.boosts.critChance + parseFloat(document.getElementById("extracritchance").value) * 10;
+        playerStats["critdamageboost"] = player.boosts.critDamage + parseFloat(document.getElementById("extracritdamage").value) * 10;
+        playerStats["multistrikeboost"] = player.boosts.multistrike + parseFloat(document.getElementById("extramultistrike").value) * 10;
+        playerStats["healingboost"] = player.boosts.healing + parseFloat(document.getElementById("extrahealing").value) * 10;
+        playerStats["defenseboost"] = player.boosts.defense + parseFloat(document.getElementById("extradefense").value) * 10;
 	    playerStats["critchance"] += player.boosts.critChance * 0.1 + convertPercentage(player.house.chairs, 15);
 	    playerStats["critdamage"] += player.boosts.critDamage * 0.1 + convertPercentage(player.house.stove, 15);
 	    playerStats["multistrike"] += player.boosts.multistrike * 0.1 + convertPercentage(player.house.sink, 15);
@@ -104,13 +110,14 @@ function simulatePersonalStrength(player) {
     combatResult = 0;
     currentSimulation = 0;
     var playerStatsCopy = Object.create(savedPlayerStats);
-    playerStatsCopy["critchance"] += parseInt(document.getElementById("extracritchance").value);
-    playerStatsCopy["critdamage"] += parseInt(document.getElementById("extracritdmg").value);
-    playerStatsCopy["multistrike"] += parseInt(document.getElementById("extramultistrike").value);
-    playerStatsCopy["healing"] += parseInt(document.getElementById("extrahealing").value);
-    playerStatsCopy["defense"] = playerStatsCopy["basedefense"] * (1+( + playerStatsCopy["defensemulti"] + parseInt(document.getElementById("extradefense").value)) / 100);
-    console.log(playerStatsCopy);
+    playerStatsCopy["critchance"] += parseFloat(document.getElementById("extracritchance").value);
+    playerStatsCopy["critdamage"] += parseFloat(document.getElementById("extracritdamage").value);
+    playerStatsCopy["multistrike"] += parseFloat(document.getElementById("extramultistrike").value);
+    playerStatsCopy["healing"] += parseFloat(document.getElementById("extrahealing").value);
+    playerStatsCopy["defensemulti"] += parseFloat(document.getElementById("extradefense").value);
+    playerStatsCopy["defense"] = playerStatsCopy["basedefense"] * (1+playerStatsCopy["defensemulti"] / 100);
     simulateCombat(playerStatsCopy, null, mobModifiers, document.getElementById("personalResult"));
+    spendRelics(playerStatsCopy, mobModifiers);
 }
 
 function addEquipmentStats(playerStats, equipment, slot) {
@@ -163,11 +170,15 @@ function getSlot(slots, equipmentType) {
 function simulateCombat(playerStats, statsToCheck, mobModifiers, resultSpan) {
     var beatableEnemyStats = null;
     if (statsToCheck == null) {
+        if (baselineResult == null) {
         statsToCheck = simulateCombatFast(playerStats, mobModifiers);
+        } else {
+            statsToCheck = baselineResult;
+        }
     }
     var highestWin = 0;
     var attempts = 0;
-    var simulations = 100;
+    var simulations = 500;
     var up = 1.1;
     var down = 0.97;
     var allowedDeaths = 0;
@@ -230,7 +241,7 @@ function simulateCombat(playerStats, statsToCheck, mobModifiers, resultSpan) {
             }
             if (simulations >= 1000) {
                 highestWin = statsToCheck;
-                down = 0.99
+                down = 0.99;
             }
             statsToCheck *= up;
         } else {
@@ -240,7 +251,7 @@ function simulateCombat(playerStats, statsToCheck, mobModifiers, resultSpan) {
             statsToCheck *= down;
             if (simulations < 1000) {
                 up = 1.01;
-                simulations = 3500;
+                simulations = 3000;
             }
             if (highestWin != null && statsToCheck < highestWin) {
                 statsToCheck = highestWin;
@@ -274,10 +285,11 @@ function simulateCombatFast(playerStats, mobModifiers) {
     while (beatableEnemyStats == null) {
         var deaths = 0;
         var playerWins = null;
+        var mobStats = getMobStats(statsToCheck, mobModifiers);
         var player = new Object();
-        var critDmg = (1+playerStats["critchance"]/100)*((playerStats["critdamage"]+50)/100);
-        var hit = playerStats["dexterity"] / (playerStats["dexterity"] + statsToCheck) * 100;
-        player.damage = (playerStats["damage"] + playerStats["strength"]) * critDmg * (hit/100) * (playerStats["multistrike"]/100);
+        var critDmg = 1+playerStats["critchance"]*(playerStats["critdamage"]+50)/10000;
+        var hit = playerStats["dexterity"] / (playerStats["dexterity"] + mobStats["agility"]);
+        player.damage = (playerStats["damage"] + playerStats["strength"]) * critDmg * hit * (1+playerStats["multistrike"]/100);
         player.health = playerStats["health"] * 50;
         player.healing = player.health * 0.025;
         var mobStats = getMobStats(statsToCheck, mobModifiers);
@@ -308,6 +320,90 @@ function simulateCombatFast(playerStats, mobModifiers) {
         attempts++;
     }
       return beatableEnemyStats;
+}
+
+function spendRelics(playerStats, mobModifiers) {
+    var mobStats = getMobStats(lastResult, mobModifiers);
+    var boostUpgrades = new Object();
+    boostUpgrades["critchance"] = 0;
+    boostUpgrades["critdamage"] = 0;
+    boostUpgrades["multistrike"] = 0;
+    boostUpgrades["healing"] = 0;
+    boostUpgrades["defense"] = 0;
+    var relicsToSpend = parseInt(document.getElementById("investrelics").value);
+    if (relicsToSpend > 0) {
+        while(relicsToSpend > 0) {
+            var baseRounds = calculateRounds(playerStats, mobStats, boostUpgrades, "", null, null);
+            var rounds = [];
+            rounds.push(calculateRounds(playerStats, mobStats, boostUpgrades, "critchance", baseRounds, true));
+            rounds.push(calculateRounds(playerStats, mobStats, boostUpgrades, "critdamage", baseRounds, true));
+            rounds.push(calculateRounds(playerStats, mobStats, boostUpgrades, "multistrike", baseRounds, true));
+            rounds.push(calculateRounds(playerStats, mobStats, boostUpgrades, "healing", baseRounds, false));
+            rounds.push(calculateRounds(playerStats, mobStats, boostUpgrades, "defense", baseRounds, false));
+            var bestEff = null;
+            for (var i = 0; i < rounds.length; i++) {
+                var round = rounds[i];
+                if (round.cost <= relicsToSpend && (bestEff == null || round.eff > bestEff.eff)) {
+                    bestEff = round;
+                }
+            }
+            if (bestEff == null) {
+                relicsToSpend = 0;
+            } else {
+                relicsToSpend -= bestEff.cost;
+                boostUpgrades[bestEff.type]++;
+            }
+        }
+        document.getElementById("extracritchance").value = boostUpgrades["critchance"]/10;
+        document.getElementById("extracritdamage").value = boostUpgrades["critdamage"]/10;
+        document.getElementById("extramultistrike").value = boostUpgrades["multistrike"]/10;
+        document.getElementById("extrahealing").value = boostUpgrades["healing"]/10;
+        document.getElementById("extradefense").value = boostUpgrades["defense"]/10;
+        document.getElementById("investrelics").value = 0;
+        simulatePersonalStrength(savedPlayerStats);
+    }
+}
+
+function calculateUpgradeCost(currentUpgrades) {
+    var baseCost = 10;
+    if (currentUpgrades > 5000) {
+        baseCost += Math.ceil((currentUpgrades-5000)/1000)*20;
+    }
+    return (currentUpgrades+1)*baseCost;
+}
+
+function calculateRounds(playerStats, mobStats, boostUpgrades, upgrade, baseRounds, isOff) {
+    var chcInc = upgrade == "critchance" ? 0.1 : 0;
+    var chdInc = upgrade == "critdamage" ? 0.1 : 0;
+    var msInc = upgrade == "multistrike" ? 0.1 : 0;
+    var healInc = upgrade == "healing" ? 0.1 : 0;
+    var defInc = upgrade == "defense" ? 0.1 : 0;
+    var player = new Object();
+    var critDmg = 1+(playerStats["critchance"]+chcInc+boostUpgrades["critchance"]/10)*(playerStats["critdamage"]+chdInc+boostUpgrades["critdamage"]/10+50)/10000;
+    var hit = playerStats["dexterity"] / (playerStats["dexterity"] + mobStats["agility"]);
+    player.damage = (playerStats["damage"] + playerStats["strength"]) * critDmg * hit * (1+(playerStats["multistrike"]+msInc+boostUpgrades["multistrike"]/10)/100);
+    player.health = playerStats["health"] * 50;
+    var mob = new Object();
+    mob.damage = mobStats["strength"] - playerStats["basedefense"]*(1+(playerStats["defensemulti"]+defInc+boostUpgrades["defense"]/10)/100);
+    mob.health = mobStats["health"] * 50;
+    mob.damage *= mobStats["dexterity"]/(mobStats["dexterity"]+playerStats["agility"]);
+    var rounds = new Object();
+    rounds.type = upgrade;
+    if (upgrade != "") {
+        rounds.cost = calculateUpgradeCost(playerStats[upgrade+"boost"]+boostUpgrades[upgrade]);
+    }
+    if (isOff == null) {
+        rounds.off = mob.health / player.damage;
+        rounds.def = player.health * 2.5 * (1-Math.pow(0.99,rounds.off*(playerStats["healing"]+healInc+boostUpgrades["healing"]/10)/100)) / mob.damage;
+    } else if (isOff) {
+        var offRounds = mob.health / player.damage;
+        rounds.eff = (offRounds - baseRounds.off) / baseRounds.off * -1 / rounds.cost;
+    } else {
+        var offRounds = mob.health / player.damage;
+        var defRounds = player.health * 2.5 * (1-Math.pow(0.99,offRounds*(playerStats["healing"]+healInc+boostUpgrades["healing"]/10)/100)) / mob.damage;
+        rounds.eff = (defRounds - baseRounds.def) / baseRounds.def / rounds.cost;
+    }
+    return rounds;
 }
 
 function initStats() {
